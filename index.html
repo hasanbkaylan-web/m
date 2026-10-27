@@ -33,11 +33,18 @@ input[type=range]{width:100%;accent-color:#fff}
 .th{height:86px;border-radius:14px;border:2px solid transparent;cursor:pointer;position:relative;overflow:hidden;font:800 40px/86px Georgia,serif;text-align:center}
 .th span{position:absolute;left:0;right:0;bottom:6px;font:600 12px/1 "Segoe UI",sans-serif;color:#fff;text-shadow:0 1px 4px #000}
 .th.on{border-color:#fff}
+#g{position:fixed;inset:0;width:100%;height:100%;display:none;z-index:4;touch-action:none}
+#quit{position:fixed;right:max(14px,env(safe-area-inset-right));top:max(14px,env(safe-area-inset-top));display:none;z-index:7;padding:9px 16px;border-radius:18px;border:1px solid var(--line);background:#0c0c10cc;color:var(--fg);font:600 13px inherit;cursor:pointer}
+.games{display:grid;gap:10px;margin-top:10px}
+.gm{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#ffffff08;cursor:pointer}
+.gm b{display:block;font-size:15px;margin-bottom:4px}.gm small{color:var(--mut);font-size:12px;line-height:1.4}
+#head{overflow-x:auto;scrollbar-width:none}.tab{padding:8px 10px;white-space:nowrap}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <button id="gyro">📱 Jiroskobu etkinleştir</button>
+<canvas id="g"></canvas><button id="quit">✕ Çık</button>
 <button id="bar" aria-label="Özelleştir menüsünü aç">Özelleştir</button>
 
 <div id="panel" role="dialog" aria-label="Özelleştir">
@@ -45,6 +52,7 @@ input[type=range]{width:100%;accent-color:#fff}
     <button class="tab on" data-t="t">Temalar</button>
     <button class="tab" data-t="m">Harf</button>
     <button class="tab" data-t="b">Arkaplan</button>
+    <button class="tab" data-t="g">Oyunlar</button>
     <button class="tab" data-t="s">Hareket</button>
     <button id="x" aria-label="Kapat">✕</button>
   </div>
@@ -64,6 +72,10 @@ input[type=range]{width:100%;accent-color:#fff}
         <div class="col"><input type="color" id="bAc">Desen</div>
       </div>
     </div>
+    <div class="sec" id="s-g"><div class="games">
+      <div class="gm" data-g="coin"><b>Altın Toplayıcı</b><small>Telefonu eğerek topu yuvarla, altınları topla, kırmızı tuzaklardan kaç. 3 canın var.</small></div>
+      <div class="gm" data-g="dodge"><b>M Kaçışı</b><small>Telefonu sağa sola eğ, M harfiyle düşen kayalardan kaç. Ne kadar uzun dayanırsan o kadar puan.</small></div>
+    </div></div>
     <div class="sec" id="s-s">
       <h4>Jiroskop / fare hassasiyeti</h4><input type="range" id="sens" min="0.3" max="2.5" step="0.05" value="1">
       <h4>Arkaplan derinliği (paralaks)</h4><input type="range" id="par" min="0" max="2.5" step="0.05" value="1">
@@ -225,14 +237,56 @@ function resize(){
   const d=cam.position.z+9,ph=2*d*Math.tan(THREE.MathUtils.degToRad(20))*1.35;bg.scale.set(ph*Math.max(a,1.6),ph,1);
 }
 addEventListener('resize',resize);resize();
-const clock=new THREE.Clock();let f=0;
+
+const G=$('g'),gx=G.getContext('2d');let game=null,GW=0,GH=0,best={};
+try{best=JSON.parse(localStorage.getItem('m-best'))||{}}catch(e){}
+const rnd=(a,b)=>a+Math.random()*(b-a);
+function gsize(){const d=Math.min(devicePixelRatio,2);GW=innerWidth;GH=innerHeight;G.width=GW*d;G.height=GH*d;gx.setTransform(d,0,0,d,0,0)}
+addEventListener('resize',()=>game&&gsize());
+function coin(){game.coins.push({x:rnd(40,GW-40),y:rnd(80,GH-90)})}
+function reset(){const g=game;Object.assign(g,{over:false,score:0,lives:3,hit:0,t:0,tm:0});
+  if(g.n==='coin'){g.b={x:GW/2,y:GH/2,vx:0,vy:0,r:16};g.coins=[];for(let i=0;i<4;i++)coin();g.haz=[];
+    for(let i=0;i<3;i++)g.haz.push({x:rnd(40,GW-40),y:rnd(40,GH/3),vx:rnd(1,2.2)*(Math.random()<.5?-1:1),vy:rnd(1,2.2)*(Math.random()<.5?-1:1),r:13})}
+  else{g.px=GW/2;g.rocks=[]}}
+function startGame(n){$('panel').classList.remove('open');game={n};gsize();reset();G.style.display='block';$('quit').style.display='block';$('bar').style.display='none';grp.visible=false}
+$('quit').onclick=()=>{game=null;G.style.display='none';$('quit').style.display='none';$('bar').style.display='';grp.visible=true};
+G.onpointerdown=()=>{if(game&&game.over)reset()};
+document.querySelectorAll('.gm').forEach(e=>e.onclick=()=>startGame(e.dataset.g));
+function lose(){const g=game;g.over=true;if(g.score>(best[g.n]||0)){best[g.n]=g.score;try{localStorage.setItem('m-best',JSON.stringify(best))}catch(e){}}}
+function gameStep(dt){
+  const g=game,k=dt*60,C=S.m.col;
+  if(!g.over){g.t+=dt;g.hit=Math.max(0,g.hit-dt);
+    if(g.n==='coin'){const b=g.b;b.vx+=tx*.9*k;b.vy+=-ty*.9*k;const f=Math.pow(.97,k);b.vx*=f;b.vy*=f;b.x+=b.vx*k;b.y+=b.vy*k;
+      if(b.x<b.r){b.x=b.r;b.vx*=-.5}if(b.x>GW-b.r){b.x=GW-b.r;b.vx*=-.5}if(b.y<b.r){b.y=b.r;b.vy*=-.5}if(b.y>GH-b.r){b.y=GH-b.r;b.vy*=-.5}
+      g.coins=g.coins.filter(c=>{if(Math.hypot(c.x-b.x,c.y-b.y)<b.r+13){g.score++;if(g.score%4===0&&g.haz.length<8)g.haz.push({x:rnd(40,GW-40),y:30,vx:rnd(1.5,2.8),vy:rnd(1.5,2.8),r:13});return false}return true});
+      while(g.coins.length<4)coin();
+      g.haz.forEach(h=>{h.x+=h.vx*k;h.y+=h.vy*k;if(h.x<h.r||h.x>GW-h.r)h.vx*=-1;if(h.y<h.r||h.y>GH-h.r)h.vy*=-1;
+        if(!g.hit&&Math.hypot(h.x-b.x,h.y-b.y)<h.r+b.r-3){g.lives--;g.hit=1.3;if(g.lives<=0)lose()}})}
+    else{g.px+=(GW/2+tx*GW*.7-g.px)*Math.min(1,.2*k);g.px=clamp(g.px,22,GW-22);g.score=Math.floor(g.t);
+      g.tm-=dt;if(g.tm<0){g.rocks.push({x:rnd(15,GW-15),y:-30,r:rnd(12,28),v:rnd(3,5)+g.t*.07});g.tm=Math.max(.16,.65-g.t*.008)}
+      g.rocks.forEach(r=>{r.y+=r.v*k;if(Math.hypot(r.x-g.px,r.y-(GH-100))<r.r+20)lose()});g.rocks=g.rocks.filter(r=>r.y<GH+40)}}
+  gx.clearRect(0,0,GW,GH);gx.shadowColor='#000a';
+  const orb=(x,y,r,c,glow)=>{gx.shadowBlur=glow;gx.shadowColor=c;gx.fillStyle=c;gx.beginPath();gx.arc(x,y,r,0,6.283);gx.fill();gx.shadowBlur=0};
+  if(g.n==='coin'){g.coins.forEach(c=>{orb(c.x,c.y,12,'#ffcf3d',18);gx.fillStyle='#fff8';gx.beginPath();gx.arc(c.x-3,c.y-3,4,0,6.283);gx.fill()});
+    g.haz.forEach(h=>orb(h.x,h.y,h.r,'#ff3b4a',16));
+    if(!g.hit||Math.floor(g.t*12)%2){orb(g.b.x,g.b.y,g.b.r,C,20);gx.fillStyle='#fff6';gx.beginPath();gx.arc(g.b.x-5,g.b.y-5,5,0,6.283);gx.fill()}}
+  else{g.rocks.forEach(r=>orb(r.x,r.y,r.r,'#ff5a3c',14));
+    gx.shadowColor=C;gx.shadowBlur=22;gx.fillStyle=C;gx.font='800 56px Georgia,serif';gx.textAlign='center';gx.textBaseline='middle';gx.fillText('M',g.px,GH-100);gx.shadowBlur=0}
+  gx.textAlign='center';gx.textBaseline='alphabetic';gx.fillStyle='#fff';gx.shadowColor='#000';gx.shadowBlur=8;
+  gx.font='700 34px "Segoe UI",sans-serif';gx.fillText(g.score,GW/2,max0(50));
+  gx.font='500 13px "Segoe UI",sans-serif';gx.fillText((g.n==='coin'?'♥'.repeat(Math.max(g.lives,0))+'  ':'')+'En iyi: '+(best[g.n]||0),GW/2,max0(72));
+  if(g.over){gx.shadowBlur=0;gx.fillStyle='#000a';gx.fillRect(0,0,GW,GH);gx.fillStyle='#fff';gx.font='800 40px "Segoe UI",sans-serif';gx.fillText('Bitti',GW/2,GH/2-20);
+    gx.font='500 18px "Segoe UI",sans-serif';gx.fillText('Skor: '+g.score+'   En iyi: '+(best[g.n]||0),GW/2,GH/2+14);gx.fillText('Tekrar oynamak için dokun',GW/2,GH/2+48)}
+  gx.shadowBlur=0}
+const max0=v=>v+ (parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sat'))||0);
+let last=performance.now();let f=0;
 (function loop(){
-  requestAnimationFrame(loop);const t=clock.getElapsedTime();f++;
+  requestAnimationFrame(loop);const now=performance.now(),dt=Math.min((now-last)/1000,.05),t=now/1000;last=now;f++;if(game)gameStep(dt);
   cx+=(tx-cx)*.08;cy+=(ty-cy)*.08;const s=S.sens;
-  grp.rotation.y=cx*.9*s;grp.rotation.x=-cy*.65*s;grp.rotation.z=-cx*.08*s;
-  grp.position.set(cx*.35*s,Math.sin(t*1.2)*.08+cy*.2*s,0);
+  grp.rotation.y=cx*.32*s;grp.rotation.x=-cy*.22*s;grp.rotation.z=-cx*.02*s;
+  grp.position.set(cx*.12*s,Math.sin(t*1.2)*.06+cy*.08*s,0);
   grp.scale.setScalar(S.size);
-  bg.position.x=-cx*1.6*S.par;bg.position.y=-cy*1.0*S.par;bg.rotation.z=cx*.03*S.par;
+  bg.position.x=-cx*.8*S.par;bg.position.y=-cy*.5*S.par;bg.rotation.z=cx*.01*S.par;
   glow.position.set(cx*5,cy*4+1.5,5);
   if(S.b.kind==='matrix'&&f%3===0)matrixStep();
   renderer.render(scene,cam);
