@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
+<title>M</title>
+<style>
+:root{--bg:#0c0c10;--fg:#f2f2f5;--mut:#8b8b99;--line:#ffffff1f;--acc:#fff}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;overflow:hidden;background:#000;color:var(--fg);font-family:"Segoe UI",system-ui,-apple-system,sans-serif;touch-action:none;overscroll-behavior:none}
+canvas#c{position:fixed;inset:0;width:100%;height:100%;display:block}
+#bar{position:fixed;left:max(12px,env(safe-area-inset-left));right:max(12px,env(safe-area-inset-right));bottom:max(10px,env(safe-area-inset-bottom));height:30px;border:1px solid var(--line);border-radius:15px;background:#0c0c10aa;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);color:var(--fg);font:500 13px/1 inherit;letter-spacing:.06em;cursor:pointer;z-index:5;transition:background .2s}
+#bar:hover{background:#1a1a22cc}
+#gyro{position:fixed;left:50%;top:max(16px,env(safe-area-inset-top));transform:translateX(-50%);display:none;padding:10px 18px;border-radius:20px;border:1px solid var(--line);background:#0c0c10cc;color:var(--fg);font:500 14px inherit;z-index:6;cursor:pointer}
+#panel{position:fixed;left:0;right:0;bottom:0;max-height:62vh;background:#0e0e14f2;backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);border-top:1px solid var(--line);border-radius:22px 22px 0 0;transform:translateY(105%);transition:transform .35s cubic-bezier(.2,.8,.2,1);z-index:10;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom)}
+#panel.open{transform:none}
+#head{display:flex;align-items:center;gap:6px;padding:12px 16px 8px}
+.tab{background:none;border:0;color:var(--mut);font:600 14px inherit;padding:8px 12px;border-radius:10px;cursor:pointer}
+.tab.on{color:var(--fg);background:#ffffff14}
+#x{margin-left:auto;background:#ffffff14;border:0;color:var(--fg);width:32px;height:32px;border-radius:16px;font-size:16px;cursor:pointer}
+#body{overflow-y:auto;padding:4px 16px 18px;touch-action:pan-y}
+.sec{display:none}.sec.on{display:block}
+h4{margin:16px 0 8px;font:600 12px inherit;color:var(--mut);letter-spacing:.04em}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--line);background:#ffffff08;color:var(--fg);padding:8px 14px;border-radius:999px;font:500 13px inherit;cursor:pointer}
+.chip.on{background:var(--fg);color:#000;border-color:var(--fg)}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.col{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--mut)}
+input[type=color]{width:42px;height:34px;border:1px solid var(--line);border-radius:10px;background:none;padding:2px;cursor:pointer}
+input[type=range]{width:100%;accent-color:#fff}
+.themes{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:10px;margin-top:10px}
+.th{height:86px;border-radius:14px;border:2px solid transparent;cursor:pointer;position:relative;overflow:hidden;font:800 40px/86px Georgia,serif;text-align:center}
+.th span{position:absolute;left:0;right:0;bottom:6px;font:600 12px/1 "Segoe UI",sans-serif;color:#fff;text-shadow:0 1px 4px #000}
+.th.on{border-color:#fff}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<button id="gyro">📱 Jiroskobu etkinleştir</button>
+<button id="bar" aria-label="Özelleştir menüsünü aç">Özelleştir</button>
+
+<div id="panel" role="dialog" aria-label="Özelleştir">
+  <div id="head">
+    <button class="tab on" data-t="t">Temalar</button>
+    <button class="tab" data-t="m">Harf</button>
+    <button class="tab" data-t="b">Arkaplan</button>
+    <button class="tab" data-t="s">Hareket</button>
+    <button id="x" aria-label="Kapat">✕</button>
+  </div>
+  <div id="body">
+    <div class="sec on" id="s-t"><div class="themes" id="themes"></div></div>
+    <div class="sec" id="s-m">
+      <h4>Materyal</h4><div class="chips" id="mMat"></div>
+      <h4>Doku</h4><div class="chips" id="mTex"></div>
+      <h4>Renk</h4><div class="row"><div class="col"><input type="color" id="mCol">Harf rengi</div></div>
+    </div>
+    <div class="sec" id="s-b">
+      <h4>Doku ve stil</h4><div class="chips" id="bKind"></div>
+      <h4>Renkler</h4>
+      <div class="row">
+        <div class="col"><input type="color" id="bC1">Üst</div>
+        <div class="col"><input type="color" id="bC2">Alt</div>
+        <div class="col"><input type="color" id="bAc">Desen</div>
+      </div>
+    </div>
+    <div class="sec" id="s-s">
+      <h4>Jiroskop / fare hassasiyeti</h4><input type="range" id="sens" min="0.3" max="2.5" step="0.05" value="1">
+      <h4>Arkaplan derinliği (paralaks)</h4><input type="range" id="par" min="0" max="2.5" step="0.05" value="1">
+      <h4>Harf boyutu</h4><input type="range" id="size" min="0.6" max="1.4" step="0.02" value="1">
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(()=>{
+const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const MATS=[['parlak','Parlak'],['metal','Metal'],['mat','Mat'],['cam','Cam'],['neon','Neon'],['tel','Tel kafes'],['holo','Holografik']];
+const MT=[['none','Düz'],['web','Ağ'],['carbon','Karbon'],['stripes','Çizgi'],['dots','Nokta'],['noise','Gürültü'],['grid','Izgara']];
+const BT=[['none','Gradyan'],['grid','Izgara'],['web','Ağ'],['dots','Nokta'],['stripes','Çizgi'],['noise','Gürültü'],['stars','Yıldız'],['matrix','Matrix']];
+const THEMES=[
+ ['Spider-Man',{mat:'parlak',tex:'web',col:'#e11d2e'},{kind:'web',c1:'#0b1a4a',c2:'#1d3fb8',ac:'#ffffff'}],
+ ['Cyberpunk',{mat:'neon',tex:'none',col:'#ff2bd6'},{kind:'grid',c1:'#0a0020',c2:'#2a0a5e',ac:'#00f0ff'}],
+ ['Matrix',{mat:'neon',tex:'grid',col:'#00ff66'},{kind:'matrix',c1:'#000000',c2:'#001a08',ac:'#00ff66'}],
+ ['Altın',{mat:'metal',tex:'none',col:'#ffc94d'},{kind:'none',c1:'#0a0a0a',c2:'#3a2c18',ac:'#ffffff'}],
+ ['Buz',{mat:'cam',tex:'none',col:'#9fe8ff'},{kind:'noise',c1:'#06233f',c2:'#1b6fa8',ac:'#ffffff'}],
+ ['Uzay',{mat:'metal',tex:'carbon',col:'#c0c8ff'},{kind:'stars',c1:'#02020a',c2:'#1a0a3a',ac:'#ffffff'}],
+ ['Gün batımı',{mat:'parlak',tex:'stripes',col:'#ff7a3d'},{kind:'dots',c1:'#2b0b3f',c2:'#ff5e62',ac:'#ffd2a8'}],
+ ['Karanlık',{mat:'mat',tex:'carbon',col:'#2a2a30'},{kind:'stripes',c1:'#050505',c2:'#16161c',ac:'#2c2c36'}]
+];
+let S={m:{mat:'parlak',tex:'web',col:'#e11d2e'},b:{kind:'web',c1:'#0b1a4a',c2:'#1d3fb8',ac:'#ffffff'},sens:1,par:1,size:1,th:0};
+try{const j=JSON.parse(localStorage.getItem('m-site'));if(j&&j.m&&j.b)S=Object.assign(S,j)}catch(e){}
+const save=()=>{try{localStorage.setItem('m-site',JSON.stringify(S))}catch(e){}};
+
+/* ---------- Desen çizici (hem harf dokusu hem arkaplan) ---------- */
+function pat(ctx,w,h,k,c1,c2,ac){
+  const g=ctx.createLinearGradient(0,0,0,h);g.addColorStop(0,c1);g.addColorStop(1,c2);
+  ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  ctx.strokeStyle=ac;ctx.fillStyle=ac;ctx.lineWidth=Math.max(1.2,w/320);ctx.globalAlpha=.85;
+  if(k==='grid'){const s=w/16;ctx.beginPath();for(let x=0;x<=w;x+=s){ctx.moveTo(x,0);ctx.lineTo(x,h)}for(let y=0;y<=h;y+=s){ctx.moveTo(0,y);ctx.lineTo(w,y)}ctx.stroke()}
+  else if(k==='web'){
+    const cx=w/2,cy=h/2,n=16,R=Math.hypot(w,h)/2,rings=9;ctx.beginPath();
+    for(let i=0;i<n;i++){const a=i/n*6.283;ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*R,cy+Math.sin(a)*R)}
+    for(let r=1;r<=rings;r++){const rr=R*r/rings*.9;for(let i=0;i<n;i++){const a=i/n*6.283,b=(i+1)/n*6.283,m=(a+b)/2;
+      ctx.moveTo(cx+Math.cos(a)*rr,cy+Math.sin(a)*rr);
+      ctx.quadraticCurveTo(cx+Math.cos(m)*rr*.86,cy+Math.sin(m)*rr*.86,cx+Math.cos(b)*rr,cy+Math.sin(b)*rr)}}
+    ctx.stroke()}
+  else if(k==='dots'){const s=w/24;for(let y=s/2,j=0;y<h;y+=s,j++)for(let x=(j%2)*s/2;x<w;x+=s){ctx.beginPath();ctx.arc(x,y,s*.12+s*.3*(y/h),0,6.283);ctx.fill()}}
+  else if(k==='stripes'){const s=w/14;ctx.lineWidth=s/3;ctx.beginPath();for(let x=-h;x<w;x+=s){ctx.moveTo(x,h);ctx.lineTo(x+h,0)}ctx.stroke()}
+  else if(k==='noise'){ctx.globalAlpha=1;for(let i=0;i<w*h/6;i++){ctx.globalAlpha=Math.random()*.35;ctx.fillRect(Math.random()*w,Math.random()*h,2,2)}}
+  else if(k==='stars'){for(let i=0;i<260;i++){ctx.globalAlpha=.3+Math.random()*.7;ctx.beginPath();ctx.arc(Math.random()*w,Math.random()*h,Math.random()*Math.random()*2.6+.4,0,6.283);ctx.fill()}}
+  else if(k==='carbon'){const s=w/40;for(let y=0;y<h;y+=s)for(let x=0;x<w;x+=s*2){const o=((y/s)%2)*s;ctx.globalAlpha=.55;ctx.fillRect(x+o,y,s,s/2);ctx.globalAlpha=.25;ctx.fillRect(x+o,y+s/2,s,s/2)}}
+  ctx.globalAlpha=1;
+}
+
+/* ---------- Sahne ---------- */
+const renderer=new THREE.WebGLRenderer({canvas:$('c'),antialias:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=1.1;
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(40,1,.1,100);
+
+// ortam yansıması (canvas ile üretilir)
+(()=>{const c=document.createElement('canvas');c.width=512;c.height=256;const x=c.getContext('2d');
+ const g=x.createLinearGradient(0,0,0,256);g.addColorStop(0,'#dfe8ff');g.addColorStop(.5,'#3a3f55');g.addColorStop(1,'#0a0a10');x.fillStyle=g;x.fillRect(0,0,512,256);
+ x.fillStyle='#fff';[[60,60,90,30],[250,40,140,24],[400,90,70,40]].forEach(r=>x.fillRect(...r));
+ x.fillStyle='#ffb27a';x.fillRect(150,120,60,20);x.fillStyle='#7ab8ff';x.fillRect(330,130,80,16);
+ const t=new THREE.CanvasTexture(c);t.mapping=THREE.EquirectangularReflectionMapping;t.encoding=THREE.sRGBEncoding;
+ scene.environment=new THREE.PMREMGenerator(renderer).fromEquirectangular(t).texture})();
+
+const key=new THREE.DirectionalLight(0xffffff,1.2);key.position.set(3,5,6);scene.add(key);
+scene.add(new THREE.AmbientLight(0xffffff,.35));
+const glow=new THREE.PointLight(0xffffff,1.1,30);scene.add(glow);
+
+// Katman 1: arkaplan
+const BW=1024,BH=640,bc=document.createElement('canvas');bc.width=BW;bc.height=BH;const bx=bc.getContext('2d');
+const bgTex=new THREE.CanvasTexture(bc);bgTex.encoding=THREE.sRGBEncoding;
+const bg=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:bgTex,toneMapped:false}));
+bg.position.z=-9;scene.add(bg);
+
+// Katman 2: M harfi
+const sh=new THREE.Shape();
+[[-2,-1.5],[-1.15,-1.5],[-1.15,.3],[0,-.95],[1.15,.3],[1.15,-1.5],[2,-1.5],[2,1.5],[1.1,1.5],[0,.1],[-1.1,1.5],[-2,1.5]].forEach((p,i)=>i?sh.lineTo(p[0],p[1]):sh.moveTo(p[0],p[1]));
+const geo=new THREE.ExtrudeGeometry(sh,{depth:.9,bevelEnabled:true,bevelThickness:.14,bevelSize:.1,bevelSegments:5});
+geo.center();
+const M=new THREE.Mesh(geo,new THREE.MeshStandardMaterial());
+const grp=new THREE.Group();grp.add(M);scene.add(grp);
+
+/* ---------- Uygulayıcılar ---------- */
+let drops=[];
+function applyB(){
+  const b=S.b;pat(bx,BW,BH,b.kind==='matrix'?'none':b.kind,b.c1,b.c2,b.ac);
+  drops=Array.from({length:Math.floor(BW/16)},()=>Math.random()*-40);bgTex.needsUpdate=true;
+}
+function matrixStep(){
+  const b=S.b;bx.globalAlpha=.1;bx.fillStyle=b.c1;bx.fillRect(0,0,BW,BH);bx.globalAlpha=1;
+  bx.fillStyle=b.ac;bx.font='16px monospace';
+  drops.forEach((d,i)=>{if(d>=0)bx.fillText(String.fromCharCode(0x30A0+Math.random()*60),i*16,d*16);
+    drops[i]=(d*16>BH&&Math.random()>.975)?0:d+1});
+  bgTex.needsUpdate=true;
+}
+function applyM(){
+  const m=S.m,old=M.material;let map=null;
+  if(m.tex!=='none'&&m.mat!=='holo'&&m.mat!=='tel'){
+    const c=document.createElement('canvas');c.width=c.height=512;
+    pat(c.getContext('2d'),512,512,m.tex,'#ffffff','#ffffff','#1a1a1a');
+    map=new THREE.CanvasTexture(c);map.wrapS=map.wrapT=THREE.RepeatWrapping;map.encoding=THREE.sRGBEncoding;
+    const r=m.tex==='web'?.25:.5;map.repeat.set(r,r);map.offset.set(.5,.5);map.anisotropy=8;
+  }
+  const o={color:m.col,map};let mat;
+  switch(m.mat){
+    case 'metal':mat=new THREE.MeshStandardMaterial({...o,metalness:1,roughness:.22});break;
+    case 'mat':mat=new THREE.MeshStandardMaterial({...o,metalness:0,roughness:.9});break;
+    case 'cam':mat=new THREE.MeshPhysicalMaterial({...o,transparent:true,opacity:.6,roughness:.04,metalness:.1,clearcoat:1,envMapIntensity:1.8});break;
+    case 'neon':mat=new THREE.MeshStandardMaterial({...o,emissive:m.col,emissiveMap:map,emissiveIntensity:1.5,roughness:.4});break;
+    case 'tel':mat=new THREE.MeshBasicMaterial({color:m.col,wireframe:true});break;
+    case 'holo':mat=new THREE.MeshNormalMaterial();break;
+    default:mat=new THREE.MeshPhysicalMaterial({...o,roughness:.15,metalness:.1,clearcoat:1,clearcoatRoughness:.05});
+  }
+  M.material=mat;old.map&&old.map.dispose();old.dispose();
+  glow.color.set(m.mat==='neon'?m.col:'#ffffff');
+}
+
+/* ---------- Arayüz ---------- */
+function chips(el,list,get,set){
+  el.innerHTML='';list.forEach(([k,n])=>{const b=document.createElement('button');b.className='chip'+(get()===k?' on':'');b.textContent=n;
+    b.onclick=()=>{set(k);[...el.children].forEach(c=>c.classList.toggle('on',c===b));save()};el.appendChild(b)})}
+function ui(){
+  chips($('mMat'),MATS,()=>S.m.mat,k=>{S.m.mat=k;applyM()});
+  chips($('mTex'),MT,()=>S.m.tex,k=>{S.m.tex=k;applyM()});
+  chips($('bKind'),BT,()=>S.b.kind,k=>{S.b.kind=k;applyB()});
+  $('mCol').value=S.m.col;$('bC1').value=S.b.c1;$('bC2').value=S.b.c2;$('bAc').value=S.b.ac;
+  $('sens').value=S.sens;$('par').value=S.par;$('size').value=S.size;
+}
+$('mCol').oninput=e=>{S.m.col=e.target.value;applyM();save()};
+[['bC1','c1'],['bC2','c2'],['bAc','ac']].forEach(([id,k])=>$(id).oninput=e=>{S.b[k]=e.target.value;applyB();save()});
+$('sens').oninput=e=>{S.sens=+e.target.value;save()};
+$('par').oninput=e=>{S.par=+e.target.value;save()};
+$('size').oninput=e=>{S.size=+e.target.value;save()};
+const th=$('themes');
+THEMES.forEach(([n,m,b],i)=>{const d=document.createElement('div');d.className='th';d.style.background=`linear-gradient(${b.c1},${b.c2})`;d.style.color=m.col;d.innerHTML=`M<span>${n}</span>`;
+  d.onclick=()=>{S.m={...m};S.b={...b};S.th=i;applyB();applyM();ui();[...th.children].forEach(c=>c.classList.toggle('on',c===d));save()};th.appendChild(d)});
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{document.querySelectorAll('.tab').forEach(x=>x.classList.toggle('on',x===t));
+  document.querySelectorAll('.sec').forEach(s=>s.classList.toggle('on',s.id==='s-'+t.dataset.t))});
+$('bar').onclick=()=>$('panel').classList.add('open');
+$('x').onclick=()=>$('panel').classList.remove('open');
+
+/* ---------- Jiroskop + fare ---------- */
+let tx=0,ty=0,cx=0,cy=0,gyro=false;
+function onOri(e){if(e.gamma==null||e.beta==null)return;gyro=true;
+  const land=(screen.orientation&&Math.abs(screen.orientation.angle)===90);
+  const g=land?e.beta:e.gamma,b=land?-e.gamma:e.beta-50;
+  tx=clamp(g/32,-1,1);ty=clamp(-b/32,-1,1)}
+function listen(){addEventListener('deviceorientation',onOri)}
+if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+  $('gyro').style.display='block';
+  $('gyro').onclick=()=>DeviceOrientationEvent.requestPermission().then(r=>{if(r==='granted')listen();$('gyro').style.display='none'}).catch(()=>{$('gyro').style.display='none'});
+}else listen();
+addEventListener('pointermove',e=>{if(gyro)return;tx=(e.clientX/innerWidth-.5)*2;ty=-(e.clientY/innerHeight-.5)*2});
+
+/* ---------- Döngü ---------- */
+function resize(){
+  const w=innerWidth,h=innerHeight,a=w/h;renderer.setSize(w,h,false);cam.aspect=a;
+  cam.position.z=9*Math.max(1,.85/a);cam.updateProjectionMatrix();
+  const d=cam.position.z+9,ph=2*d*Math.tan(THREE.MathUtils.degToRad(20))*1.35;bg.scale.set(ph*Math.max(a,1.6),ph,1);
+}
+addEventListener('resize',resize);resize();
+const clock=new THREE.Clock();let f=0;
+(function loop(){
+  requestAnimationFrame(loop);const t=clock.getElapsedTime();f++;
+  cx+=(tx-cx)*.08;cy+=(ty-cy)*.08;const s=S.sens;
+  grp.rotation.y=cx*.9*s;grp.rotation.x=-cy*.65*s;grp.rotation.z=-cx*.08*s;
+  grp.position.set(cx*.35*s,Math.sin(t*1.2)*.08+cy*.2*s,0);
+  grp.scale.setScalar(S.size);
+  bg.position.x=-cx*1.6*S.par;bg.position.y=-cy*1.0*S.par;bg.rotation.z=cx*.03*S.par;
+  glow.position.set(cx*5,cy*4+1.5,5);
+  if(S.b.kind==='matrix'&&f%3===0)matrixStep();
+  renderer.render(scene,cam);
+})();
+
+applyB();applyM();ui();
+[...th.children].forEach((c,i)=>c.classList.toggle('on',i===S.th&&JSON.stringify(THEMES[i][1])===JSON.stringify(S.m)));
+})();
+</script>
+</body>
+</html>
